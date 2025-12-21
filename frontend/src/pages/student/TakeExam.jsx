@@ -58,7 +58,7 @@ export default function TakeExam() {
     if (!exam || result) return;
     if (secondsLeft <= 0) {
       clearInterval(timerRef.current);
-      submit();
+      submit({ confirm: false });
     }
   }, [secondsLeft, exam, result]);
 
@@ -66,8 +66,12 @@ export default function TakeExam() {
     setAnswers((prev) => ({ ...prev, [qId]: idx }));
   }
 
-  async function submit() {
+  async function submit({ confirm = true } = {}) {
     if (!exam || submitting || result) return;
+    if (confirm) {
+      const ok = window.confirm("Submit the exam now? You can't edit after submission.");
+      if (!ok) return;
+    }
     setSubmitting(true);
     setError("");
     clearInterval(timerRef.current);
@@ -134,9 +138,28 @@ export default function TakeExam() {
   }
 
   const q = exam.questions[activeIdx];
+  const answeredCount = exam.questions.reduce((count, qq) => count + (answers[qq.id] !== undefined ? 1 : 0), 0);
+  const isLast = activeIdx === exam.questions.length - 1;
+
+  function saveAndNext() {
+    if (isLast) return;
+    setActiveIdx((i) => Math.min(exam.questions.length - 1, i + 1));
+  }
 
   return (
     <div className="space-y-4">
+      {submitting ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4">
+          <div className="w-full max-w-sm rounded-xl border border-slate-800 bg-slate-950 p-4">
+            <div className="text-base font-semibold">Submitting</div>
+            <div className="mt-1 text-sm text-slate-400">Please wait. Don't close this tab.</div>
+            <div className="mt-4">
+              <Spinner label="Sending your answers..." />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {error ? <Alert>{error}</Alert> : null}
       <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -146,9 +169,42 @@ export default function TakeExam() {
               {exam.subject} • {exam.questions.length} questions • {exam.totalMarks} marks
             </div>
           </div>
-          <div className="rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-sm">
-            Time left: <span className="font-semibold">{formatTime(secondsLeft)}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-sm">
+              Answered: <span className="font-semibold">{answeredCount}</span>/{exam.questions.length}
+            </div>
+            <div className="rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-sm">
+              Time left: <span className="font-semibold">{formatTime(secondsLeft)}</span>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="text-sm font-semibold">Question navigator</div>
+          <div className="text-xs text-slate-500">Jump to any question</div>
+        </div>
+        <div className="mt-3 grid grid-cols-10 gap-2 sm:grid-cols-12">
+          {exam.questions.map((qq, idx) => {
+            const answered = answers[qq.id] !== undefined;
+            const active = idx === activeIdx;
+            const cls = active
+              ? "border-indigo-500 bg-indigo-950/30 text-indigo-100"
+              : answered
+                ? "border-emerald-700 bg-emerald-950/20 text-emerald-100"
+                : "border-slate-800 bg-slate-950 text-slate-300 hover:bg-slate-900/30";
+            return (
+              <button
+                key={qq.id}
+                onClick={() => setActiveIdx(idx)}
+                className={`h-9 rounded-md border text-xs font-medium ${cls}`}
+                type="button"
+              >
+                {idx + 1}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -164,7 +220,11 @@ export default function TakeExam() {
           {q.options.map((opt, idx) => (
             <label
               key={idx}
-              className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-900 bg-slate-950 p-3 hover:bg-slate-900/30"
+              className={`flex cursor-pointer items-center gap-2 rounded-md border p-3 transition ${
+                (answers[q.id] ?? -1) === idx
+                  ? "border-indigo-600 bg-indigo-950/30"
+                  : "border-slate-900 bg-slate-950 hover:bg-slate-900/30"
+              }`}
             >
               <input
                 type="radio"
@@ -182,20 +242,26 @@ export default function TakeExam() {
             <Button variant="ghost" disabled={activeIdx === 0} onClick={() => setActiveIdx((i) => i - 1)}>
               Prev
             </Button>
-            <Button
-              variant="ghost"
-              disabled={activeIdx >= exam.questions.length - 1}
-              onClick={() => setActiveIdx((i) => i + 1)}
-            >
+            <Button variant="ghost" disabled={isLast} onClick={() => setActiveIdx((i) => i + 1)}>
               Next
             </Button>
           </div>
-          <Button disabled={submitting} onClick={submit}>
-            {submitting ? "Submitting..." : "Submit exam"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" disabled={isLast} onClick={saveAndNext}>
+              Save & Next
+            </Button>
+            <Button disabled={submitting} onClick={() => submit({ confirm: true })}>
+              Submit exam
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+        <div className="text-xs text-slate-500">
+          Tip: You can navigate questions freely. Your choices are saved locally until you submit.
         </div>
       </div>
     </div>
   );
 }
-

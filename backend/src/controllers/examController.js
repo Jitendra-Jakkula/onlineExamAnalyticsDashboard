@@ -83,8 +83,12 @@ async function addQuestion(req, res) {
   if (!text || !options || correctOption === undefined || !marks) {
     return res.status(400).json({ error: "Missing fields" });
   }
-  if (!Array.isArray(options) || options.length !== 4) {
-    return res.status(400).json({ error: "Options must be an array of 4 strings" });
+  if (!Array.isArray(options) || (options.length !== 2 && options.length !== 4)) {
+    return res.status(400).json({ error: "Options must be an array of 2 or 4 strings" });
+  }
+  const co = Number(correctOption);
+  if (!Number.isFinite(co) || co < 0 || co >= options.length) {
+    return res.status(400).json({ error: "correctOption out of range" });
   }
 
   const exam = await Exam.findById(req.params.examId);
@@ -94,7 +98,7 @@ async function addQuestion(req, res) {
     text: String(text).trim(),
     topic: String(topic || "").trim(),
     options: options.map((o) => String(o)),
-    correctOption: Number(correctOption),
+    correctOption: co,
     marks: Number(marks)
   });
   exam.recalculateTotalMarks();

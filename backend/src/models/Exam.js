@@ -4,8 +4,23 @@ const questionSchema = new mongoose.Schema(
   {
     text: { type: String, required: true, trim: true },
     topic: { type: String, trim: true, default: "" },
-    options: { type: [String], required: true, validate: (v) => Array.isArray(v) && v.length === 4 },
-    correctOption: { type: Number, required: true, min: 0, max: 3 },
+    options: {
+      type: [String],
+      required: true,
+      validate: (v) => Array.isArray(v) && (v.length === 2 || v.length === 4)
+    },
+    correctOption: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 3,
+      validate: {
+        validator: function validator(v) {
+          return Array.isArray(this.options) && v >= 0 && v < this.options.length;
+        },
+        message: "correctOption out of range"
+      }
+    },
     marks: { type: Number, required: true, min: 1, max: 100 }
   },
   { _id: true }

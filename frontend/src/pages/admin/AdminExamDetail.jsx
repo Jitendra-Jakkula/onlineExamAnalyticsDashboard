@@ -14,16 +14,24 @@ export default function AdminExamDetail() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [questionType, setQuestionType] = useState("mcq4");
   const [qText, setQText] = useState("");
   const [topic, setTopic] = useState("");
-  const [o0, setO0] = useState("");
-  const [o1, setO1] = useState("");
-  const [o2, setO2] = useState("");
-  const [o3, setO3] = useState("");
   const [correctOption, setCorrectOption] = useState(0);
   const [marks, setMarks] = useState(1);
 
-  const options = useMemo(() => [o0, o1, o2, o3], [o0, o1, o2, o3]);
+  const [options, setOptions] = useState(["", "", "", ""]);
+
+  useEffect(() => {
+    if (questionType === "tf") setOptions(["True", "False"]);
+    else setOptions(["", "", "", ""]);
+    setCorrectOption(0);
+  }, [questionType]);
+
+  const optionLabels = useMemo(() => {
+    if (questionType === "tf") return ["True", "False"];
+    return ["A", "B", "C", "D"];
+  }, [questionType]);
 
   async function load() {
     setLoading(true);
@@ -71,12 +79,10 @@ export default function AdminExamDetail() {
         marks: Number(marks)
       });
       setExam(data.exam);
+      setQuestionType("mcq4");
       setQText("");
       setTopic("");
-      setO0("");
-      setO1("");
-      setO2("");
-      setO3("");
+      setOptions(["", "", "", ""]);
       setCorrectOption(0);
       setMarks(1);
     } catch (err) {
@@ -124,14 +130,48 @@ export default function AdminExamDetail() {
       <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
         <div className="text-base font-semibold">Add question</div>
         <div className="mt-4 grid grid-cols-1 gap-3">
+          <label className="block">
+            <div className="mb-1 text-sm text-slate-300">Question type</div>
+            <select
+              className="w-full rounded-md border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+              value={questionType}
+              onChange={(e) => setQuestionType(e.target.value)}
+            >
+              <option value="mcq4">MCQ (4 options)</option>
+              <option value="tf">True / False</option>
+            </select>
+          </label>
           <Input label="Question" value={qText} onChange={(e) => setQText(e.target.value)} />
           <Input label="Topic (optional)" value={topic} onChange={(e) => setTopic(e.target.value)} />
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Input label="Option A" value={o0} onChange={(e) => setO0(e.target.value)} />
-            <Input label="Option B" value={o1} onChange={(e) => setO1(e.target.value)} />
-            <Input label="Option C" value={o2} onChange={(e) => setO2(e.target.value)} />
-            <Input label="Option D" value={o3} onChange={(e) => setO3(e.target.value)} />
-          </div>
+          {questionType === "tf" ? (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Input label="Option 1" value={options[0]} disabled />
+              <Input label="Option 2" value={options[1]} disabled />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Input
+                label="Option A"
+                value={options[0]}
+                onChange={(e) => setOptions((p) => [e.target.value, p[1], p[2], p[3]])}
+              />
+              <Input
+                label="Option B"
+                value={options[1]}
+                onChange={(e) => setOptions((p) => [p[0], e.target.value, p[2], p[3]])}
+              />
+              <Input
+                label="Option C"
+                value={options[2]}
+                onChange={(e) => setOptions((p) => [p[0], p[1], e.target.value, p[3]])}
+              />
+              <Input
+                label="Option D"
+                value={options[3]}
+                onChange={(e) => setOptions((p) => [p[0], p[1], p[2], e.target.value])}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block">
               <div className="mb-1 text-sm text-slate-300">Correct option</div>
@@ -140,19 +180,45 @@ export default function AdminExamDetail() {
                 value={correctOption}
                 onChange={(e) => setCorrectOption(e.target.value)}
               >
-                <option value={0}>A</option>
-                <option value={1}>B</option>
-                <option value={2}>C</option>
-                <option value={3}>D</option>
+                {options.map((_, idx) => (
+                  <option key={idx} value={idx}>
+                    {optionLabels[idx] ?? `Option ${idx + 1}`}
+                  </option>
+                ))}
               </select>
             </label>
             <Input label="Marks" value={marks} onChange={(e) => setMarks(e.target.value)} type="number" min={1} />
           </div>
         </div>
         <div className="mt-4">
-          <Button disabled={busy || !qText || options.some((o) => !o)} onClick={addQuestion}>
+          <Button
+            disabled={busy || !qText || (questionType === "mcq4" && options.some((o) => !o))}
+            onClick={addQuestion}
+          >
             {busy ? "Saving..." : "Add question"}
           </Button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+        <div className="text-base font-semibold">Questions</div>
+        <div className="mt-4 space-y-2">
+          {exam.questions.map((q, idx) => (
+            <div key={q._id} className="rounded-lg border border-slate-900 bg-slate-950 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-sm font-medium">
+                  {idx + 1}. {q.text}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {q.options.length === 2 ? "True/False" : "MCQ"} • {q.marks} marks
+                </div>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">
+                Topic: {(q.topic || exam.subject || "General").trim() || "General"}
+              </div>
+            </div>
+          ))}
+          {exam.questions.length === 0 ? <div className="text-sm text-slate-500">No questions yet</div> : null}
         </div>
       </div>
 
@@ -176,4 +242,3 @@ export default function AdminExamDetail() {
     </div>
   );
 }
-
